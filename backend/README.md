@@ -67,14 +67,3 @@ Visit http://localhost:8000/docs for the interactive Swagger UI.
 pytest tests/ -v
 # No API keys needed — all LLM and HTTP calls are mocked
 ```
-
-## Deployment
-
-```bash
-# Railway
-railway up
-
-# Docker
-docker build -t vishwa .
-docker run -p 8000:8000 --env-file .env vishwa
-```
