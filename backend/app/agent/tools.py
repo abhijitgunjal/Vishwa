@@ -10,6 +10,7 @@ import logging
 from typing import Any, Optional
 
 import httpx
+from async_lru import alru_cache
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,7 @@ _TIMEOUT = httpx.Timeout(10.0)
 _FIELDS = "name,capital,population,currencies,languages,region,subregion,flags,area"
 
 
+@alru_cache(maxsize=128)
 async def fetch_country(country_name: str) -> tuple[Optional[dict[str, Any]], Optional[str]]:
     """
     Fetch country data from the REST Countries API.

@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse
 from agent import agent, AgentState
 from providers import get_llm
 from schemas import QueryRequest, QueryResponse
+from agent.tools import fetch_country
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -157,3 +158,15 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={"detail": "An unexpected server error occurred."},
     )
+
+@app.get("/cache/info", tags=["ops"])
+async def cache_info():
+    info = fetch_country.cache_info()
+    return {
+        "hits":         info.hits,
+        "misses":       info.misses,
+        "current_size": info.currsize,
+        "max_size":     info.maxsize,
+        "hit_rate":     round(info.hits / (info.hits + info.misses) * 100, 1)
+                        if (info.hits + info.misses) > 0 else 0,
+    }
