@@ -38,30 +38,6 @@ Make sure your backend is running on port 8000 (or update `VITE_API_URL` in `.en
 
 ## Backend API Contract
 
-The frontend expects these two endpoints:
-
-### `POST /query/stream`
-**Request:**
-```json
-{ "question": "What is the capital of France?" }
-```
-
-**Response:** Server-Sent Events stream with `data:` lines:
-
-```
-data: {"type":"step","step":{"step":"intent","label":"Identifying intent","done":false}}
-data: {"type":"step","step":{"step":"intent","label":"Identifying intent","detail":"country=France, fields=[capital]","done":true}}
-data: {"type":"step","step":{"step":"tool","label":"Fetching Data","done":false}}
-data: {"type":"step","step":{"step":"tool","label":"Fetching Data","detail":"GET /name/france","done":true}}
-data: {"type":"step","step":{"step":"synthesis","label":"Synthesizing Answer","done":false}}
-data: {"type":"token","token":"The "}
-data: {"type":"token","token":"capital "}
-data: {"type":"token","token":"of France is **Paris**."}
-data: {"type":"step","step":{"step":"synthesis","label":"Synthesizing Answer","done":true}}
-data: {"type":"done"}
-data: [DONE]
-```
-
 ### `POST /query` (fallback, non-streaming)
 **Response:**
 ```json
