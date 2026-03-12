@@ -3,9 +3,10 @@ interface Props {
 }
 
 const SUGGESTIONS = [
+  'China vs India Population',
   'What is the population of Germany?',
   'What currency does Japan use?',
-  'What is the capital of Brazil?',
+  'What are the capitals of France, Spain and Italy?',
   'Tell me about France — capital, currency and population',
   'What languages are spoken in Switzerland?',
   'What is the area of Australia?',

@@ -2,8 +2,15 @@ const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
 export interface QueryResponse {
   answer: string;
-  country: string | null;
+  countries: string[];
   fields: string[];
+}
+
+export class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = 'ApiError';
+  }
 }
 
 export async function queryCountry(
@@ -18,8 +25,7 @@ export async function queryCountry(
   });
 
   if (!response.ok) {
-    const errorText = await response.text().catch(() => 'Unknown error');
-    throw new Error(`API error ${response.status}: ${errorText}`);
+    throw new ApiError(response.status, await response.text().catch(() => ''));
   }
 
   return response.json() as Promise<QueryResponse>;

@@ -1,9 +1,21 @@
 import { useState, useCallback, useRef } from 'react';
-import { queryCountry } from '../lib/api';
+import { queryCountry, ApiError } from '../lib/api';
 import type { Message } from '../types';
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function getErrorMessage(err: unknown): string {
+  if (err instanceof ApiError) {
+    switch (err.status) {
+      case 429: return 'Too many requests — please wait a moment before asking again.';
+      case 422: return 'Your question could not be understood. Please try rephrasing it.';
+      case 500: return 'The agent encountered an internal error. Please try again.';
+      default:  return `Something went wrong (${err.status}). Please try again.`;
+    }
+  }
+  return 'Failed to reach the agent. Is the backend running?';
 }
 
 export function useChat() {
@@ -36,7 +48,6 @@ export function useChat() {
 
     try {
       const data = await queryCountry(question, abortRef.current.signal);
-
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantId
@@ -50,12 +61,7 @@ export function useChat() {
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantId
-            ? {
-                ...m,
-                content: 'Failed to reach the agent. Is the backend running?',
-                status: 'error',
-                error: true,
-              }
+            ? { ...m, content: getErrorMessage(err), status: 'error', error: true }
             : m
         )
       );

@@ -1,14 +1,18 @@
 """
 nodes.py — the three processing steps of the Vishwa agent pipeline.
 
-Node 1 — identify_intent  : extract country name + requested fields (JSON)
-Node 2 — invoke_tool       : call the REST Countries API (no LLM)
-Node 3 — synthesise_answer : generate a natural-language answer
+Node 1 — identify_intent  : extract country names (1 or more) + requested fields
+Node 2 — invoke_tool       : fetch each country from REST Countries API concurrently
+Node 3 — synthesise_answer : generate a natural-language answer from all fetched data
 
-All LLM calls use the LangChain BaseChatModel returned by get_llm(),
-so the nodes are completely decoupled from any specific provider SDK.
+Supports multi-country queries such as:
+    "Germany population vs India population"
+    "Compare the currencies of Japan and South Korea"
+    "What are the capitals of France, Spain and Italy?"
 """
 
+import asyncio
+from fastapi import HTTPException
 import json
 import logging
 from typing import Any
@@ -18,6 +22,8 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from agent.state import AgentState
 from agent.tools import fetch_country
 from providers import get_llm
+from agent.constants import ALL_FIELDS
+from agent.prompts import Prompts
 
 logger = logging.getLogger(__name__)
 
@@ -28,30 +34,25 @@ logger = logging.getLogger(__name__)
 async def identify_intent(state: AgentState) -> dict[str, Any]:
     """
     Use the LLM to extract:
-      • country_name     — the country the user is asking about
-      • requested_fields — the specific data points they want
+      • country_names    — list of countries mentioned (1 or more)
+      • requested_fields — the specific data points the user wants
 
-    Uses ainvoke() (non-streaming) — we need the full JSON before parsing.
+    Returns a list even for single-country queries so the rest of the
+    pipeline never has to branch on "is this one country or many".
     """
-    system_text = """\
-You are an intent-extraction assistant. Given a user question about a country,
-extract two things and return ONLY valid JSON (no markdown, no explanation):
-
-{
-  "country_name": "<the country name or null if unclear>",
-  "requested_fields": ["<field1>", "<field2>", ...]
-}
-
-Valid fields: capital, population, currencies, languages, region, subregion, area, flag.
-Return all fields if no specific fields are requested.
-Set country_name to null and requested_fields to [] if no country is identifiable."""
 
     messages = [
-        SystemMessage(content=system_text),
+        SystemMessage(content=Prompts.INTENT_SYSTEM),
         HumanMessage(content=state["user_query"]),
     ]
 
-    response = await get_llm().ainvoke(messages)
+    try:
+        async with asyncio.timeout(30):  # 30 seconds max
+            response = await get_llm().ainvoke(messages)
+    except asyncio.TimeoutError:
+        logger.error("LLM call timed out after 30s")
+        raise HTTPException(status_code=504, detail="The agent timed out. Please try again.")
+
     raw = response.content.strip()
 
     # Strip markdown code fences if any model wraps JSON in them
@@ -63,15 +64,20 @@ Set country_name to null and requested_fields to [] if no country is identifiabl
 
     try:
         parsed = json.loads(raw)
-        country_name: str | None = parsed.get("country_name")
+        country_names: list[str] = parsed.get("country_names") or []
         requested_fields: list[str] = parsed.get("requested_fields", [])
+
+        # Defensive: if the model returned a plain string instead of a list
+        if isinstance(country_names, str):
+            country_names = [country_names] if country_names else []
+
     except json.JSONDecodeError:
         logger.warning("Intent node returned non-JSON: %s", raw)
-        country_name = None
+        country_names = []
         requested_fields = []
 
-    logger.info("Intent | country=%s | fields=%s", country_name, requested_fields)
-    return {"country_name": country_name, "requested_fields": requested_fields}
+    logger.info("Intent | countries=%s | fields=%s", country_names, requested_fields)
+    return {"country_names": country_names, "requested_fields": requested_fields}
 
 
 # ── Node 2 ────────────────────────────────────────────────────────────────────
@@ -79,28 +85,47 @@ Set country_name to null and requested_fields to [] if no country is identifiabl
 
 async def invoke_tool(state: AgentState) -> dict[str, Any]:
     """
-    Call the REST Countries API. No LLM involved — pure HTTP.
-    Short-circuits with an error if no country was identified in node 1.
-    """
-    country_name = state.get("country_name")
+    Fetch all countries concurrently using asyncio.gather.
 
-    if not country_name:
+    - If no countries were identified, short-circuit with an error.
+    - If some fetches succeed and some fail, include what we have and
+      note the failures in tool_error so the synthesis node can report them.
+    - All successful results are collected in order into raw_country_data.
+    """
+    country_names: list[str] = state.get("country_names") or []
+
+    if not country_names:
         return {
-            "raw_country_data": None,
+            "raw_country_data": [],
             "tool_error": (
-                "I couldn't identify a country in your question. "
-                "Please mention a specific country (e.g. 'What is the capital of France?')."
+                "I couldn't identify any country in your question. "
+                "Please mention at least one country (e.g. 'What is the capital of France?')."
             ),
         }
 
-    data, error = await fetch_country(country_name)
-    logger.info(
-        "Tool | country=%s | error=%s | keys=%s",
-        country_name,
-        error,
-        list(data.keys()) if data else None,
+    # Fetch all countries concurrently — much faster than sequential for 2+ countries
+    results = await asyncio.gather(
+        *[fetch_country(name) for name in country_names],
+        return_exceptions=False,
     )
-    return {"raw_country_data": data, "tool_error": error}
+
+    raw_country_data: list[dict[str, Any]] = []
+    errors: list[str] = []
+
+    for name, (data, error) in zip(country_names, results):
+        if error:
+            logger.warning("Tool | country=%s | error=%s", name, error)
+            errors.append(f"{name}: {error}")
+        else:
+            logger.info("Tool | country=%s | keys=%s", name, list(data.keys()))
+            raw_country_data.append(data)
+
+    tool_error = "; ".join(errors) if errors else None
+
+    return {
+        "raw_country_data": raw_country_data,
+        "tool_error": tool_error,
+    }
 
 
 # ── Node 3 ────────────────────────────────────────────────────────────────────
@@ -108,41 +133,52 @@ async def invoke_tool(state: AgentState) -> dict[str, Any]:
 
 async def synthesise_answer(state: AgentState) -> dict[str, Any]:
     """
-    Convert raw API data (or a tool error) into a clear, factual answer.
-    Uses ainvoke() — returns the complete answer string.
-    """
-    # Fast path: propagate tool errors without hitting the LLM
-    if state.get("tool_error"):
-        return {"answer": state["tool_error"]}
+    Convert raw API data from one or more countries into a clear, factual answer.
 
-    data = state.get("raw_country_data")
-    if not data:
+    If some countries failed to fetch, the error is noted in the prompt so
+    the LLM can acknowledge the gap rather than silently ignoring it.
+    """
+    raw_country_data: list[dict[str, Any]] = state.get("raw_country_data") or []
+    tool_error = state.get("tool_error")
+
+    # Hard fail only if we have nothing at all
+    if not raw_country_data and tool_error:
+        return {"answer": tool_error}
+
+    if not raw_country_data:
         return {
             "answer": "I was unable to retrieve data for that country. Please try again."
         }
 
-    fields = state.get("requested_fields") or []
-    context = _build_context(data, fields)
+    # In synthesise_answer, before building context:
+    fields = [f for f in (state.get("requested_fields") or []) if f in ALL_FIELDS]
 
-    system_text = """\
-You are a helpful geography assistant. Answer the user's question using ONLY
-the provided country data. Be concise and factual. Do not invent information.
-If a requested piece of information is missing from the data, say so clearly."""
+    # Build one context block per country, clearly separated
+    context_blocks = [_build_context(data, fields) for data in raw_country_data]
+    context = "\n\n---\n\n".join(context_blocks)
 
-    user_text = f"""\
-User question: {state["user_query"]}
-
-Country data:
-{context}
-
-Answer the question based solely on the data above."""
+    # If some fetches failed, tell the LLM so it can mention the gap
+    partial_error_note = (
+        f"\nNote: Some countries could not be retrieved — {tool_error}"
+        if tool_error
+        else ""
+    )
 
     messages = [
-        SystemMessage(content=system_text),
-        HumanMessage(content=user_text),
+        SystemMessage(content=Prompts.SYNTHESIS_ANSWER_SYSTEM),
+        HumanMessage(content=Prompts.synthesis_answer_user_text(
+            query=state["user_query"],
+            context=context,
+            partial_error_note=partial_error_note
+        )),
     ]
 
-    response = await get_llm().ainvoke(messages)
+    try:
+        async with asyncio.timeout(30):  # 30 seconds max
+            response = await get_llm().ainvoke(messages)
+    except asyncio.TimeoutError:
+        logger.error("LLM call timed out after 30s")
+        raise HTTPException(status_code=504, detail="The agent timed out. Please try again.")
     answer = response.content.strip()
 
     logger.info("Synthesis complete | chars=%d", len(answer))
@@ -154,19 +190,9 @@ Answer the question based solely on the data above."""
 
 def _build_context(data: dict[str, Any], fields: list[str]) -> str:
     """
-    Flatten only the relevant fields from the REST Countries payload
+    Flatten only the relevant fields from a single REST Countries payload
     into a clean key-value string to keep the synthesis prompt small.
     """
-    ALL_FIELDS = {
-        "capital",
-        "population",
-        "currencies",
-        "languages",
-        "region",
-        "subregion",
-        "area",
-        "flag",
-    }
 
     target = set(fields) & ALL_FIELDS if fields else ALL_FIELDS
 

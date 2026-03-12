@@ -1,28 +1,18 @@
-# ── Core framework ────────────────────────────────────────────────────────────
 fastapi>=0.115.0
 uvicorn[standard]>=0.32.0
 pydantic>=2.10.0
 
-# ── Agent framework ───────────────────────────────────────────────────────────
 langgraph>=0.2.0
 langchain-core>=0.3.0
-
-# ── LLM providers (install the one matching your LLM_PROVIDER) ───────────────
-
-# Groq  →  LLM_PROVIDER=groq
 langchain-groq>=0.2.0
-
-# AWS Bedrock  →  LLM_PROVIDER=bedrock
 langchain-aws>=0.2.0
-
-# OpenRouter  →  LLM_PROVIDER=openrouter  (uses OpenAI-compatible SDK)
 langchain-openai>=0.2.0
-
-# ── HTTP client (REST Countries API) ─────────────────────────────────────────
 httpx>=0.28.0
 
-# ── Testing ───────────────────────────────────────────────────────────────────
 pytest>=8.0.0
 pytest-asyncio>=0.24.0
 python-dotenv>=1.0.0
 async-lru==2.2.0
+slowapi==0.1.9
+pydantic-settings==2.13.1
+cachetools==7.0.5

@@ -46,7 +46,6 @@ async def fetch_country(country_name: str) -> tuple[Optional[dict[str, Any]], Op
         if not results:
             return None, f"No country found matching '{country_name}'."
 
-        # Return the best match (exact name match preferred, else first result)
         best = _pick_best_match(country_name, results)
         return best, None
 
