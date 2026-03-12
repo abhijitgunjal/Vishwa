@@ -13,7 +13,7 @@ import logging
 import os
 import time
 import uuid
-
+from mangum import Mangum
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -202,3 +202,6 @@ async def clear_cache(cache: CacheBackend = Depends(get_cache)):
     """Clear all cached responses (admin endpoint)."""
     await cache.clear()
     return {"message": "Cache cleared successfully"}
+
+
+handler = Mangum(app)

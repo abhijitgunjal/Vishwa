@@ -16,3 +16,4 @@ async-lru==2.2.0
 slowapi==0.1.9
 pydantic-settings==2.13.1
 cachetools==7.0.5
+mangum==0.21.0

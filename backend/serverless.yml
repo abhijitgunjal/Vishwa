@@ -1,0 +1,36 @@
+# "org" ensures this Service is used with the correct Serverless Framework Access Key.
+org: lentreo
+# "app" enables Serverless Framework Dashboard features and sharing them with other Services.
+app: vishwa
+service: vishwa-agent-lambda
+
+provider:
+  name: aws
+  region: ap-south-1
+  stage: dev
+  timeout: 29
+  memorySize: 512
+  architecture: x86_64
+
+  environment:
+    LLM_PROVIDER: ${env:LLM_PROVIDER}
+    GROQ_API_KEY: ${env:GROQ_API_KEY}
+    CORS_ORIGINS: ${env:CORS_ORIGINS}
+
+  ecr:
+    images:
+      vishwa-app:
+        path: ./
+        file: Dockerfile
+
+functions:
+  app:
+    image:
+      name: vishwa-app
+    events:
+      - httpApi:
+          path: /{proxy+}
+          method: ANY
+      - httpApi:
+          path: /
+          method: ANY
