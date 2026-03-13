@@ -7,8 +7,8 @@ Pipeline:
 
 from langgraph.graph import StateGraph, END
 
-from .state import AgentState
-from .nodes import identify_intent, invoke_tool, synthesise_answer
+from app.agent.state import AgentState
+from app.agent.nodes import identify_intent, invoke_tool, synthesise_answer
 
 
 def _build_graph():

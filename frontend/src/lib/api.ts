@@ -1,5 +1,3 @@
-const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
-
 export interface QueryResponse {
   answer: string;
   countries: string[];
@@ -17,7 +15,7 @@ export async function queryCountry(
   question: string,
   signal?: AbortSignal
 ): Promise<QueryResponse> {
-  const response = await fetch(`${API_BASE}/query`, {
+  const response = await fetch("/api/query", {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ question }),

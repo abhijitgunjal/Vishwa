@@ -22,6 +22,9 @@ provider:
       vishwa-app:
         path: ./
         file: Dockerfile
+        platform: linux/amd64
+        buildArgs:
+          provenance: "false"
 
 functions:
   app:

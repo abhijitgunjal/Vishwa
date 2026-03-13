@@ -8,7 +8,7 @@ Keeping prompts separate from node execution logic means:
 """
 
 from textwrap import dedent
-from agent.constants import ALL_FIELDS
+from app.agent.constants import ALL_FIELDS
 
 
 class Prompts:

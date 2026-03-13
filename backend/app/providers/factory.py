@@ -35,8 +35,8 @@ def get_llm() -> BaseChatModel:
     global _llm_instance  # noqa: PLW0603
     if _llm_instance is None:
         _llm_instance = _build_llm()
-    return _llm_instance
 
+    return _llm_instance
 
 def _build_llm() -> BaseChatModel:
     provider = os.getenv("LLM_PROVIDER", "groq").lower().strip()

@@ -18,18 +18,18 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from agent import agent, AgentState
-from cache.backend import CacheBackend
-from cache.config import get_cache
-from providers import get_llm
-from schemas import QueryRequest, QueryResponse
-from agent.tools import fetch_country
+from .agent import agent, AgentState
+from .cache.backend import CacheBackend
+from .cache.config import get_cache
+from .providers.factory import get_llm
+from .schemas import QueryRequest, QueryResponse
+from .agent.tools import fetch_country
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
-from config.settings import get_settings
-from api.lifespan import lifespan
+from .config.settings import get_settings
+from .api.lifespan import lifespan
 
 from dotenv import load_dotenv
 

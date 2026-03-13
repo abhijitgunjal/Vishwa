@@ -1,8 +1,8 @@
-FROM public.ecr.aws/lambda/python:3.11
+FROM --platform=linux/amd64 public.ecr.aws/lambda/python:3.13
 
 COPY requirements.txt ${LAMBDA_TASK_ROOT}
 RUN pip install -r requirements.txt
 
 COPY . ${LAMBDA_TASK_ROOT}
 
-CMD ["main.handler"]
+CMD ["app.main.handler"]

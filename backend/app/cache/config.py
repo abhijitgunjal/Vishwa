@@ -2,8 +2,8 @@
 Cache configuration and factory.
 """
 
-from cache.backend import CacheBackend, InMemoryCache
-from config.settings import get_settings
+from app.cache.backend import CacheBackend, InMemoryCache
+from app.config.settings import get_settings
 import logging
 
 logger = logging.getLogger(__name__)
