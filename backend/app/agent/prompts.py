@@ -28,6 +28,9 @@ class Prompts:
         - Return all fields if no specific fields are requested.
         - If the user asks for something outside valid fields (e.g. price, weather, history),
           silently drop it from requested_fields.
+        - If the question is about a conflict, war, political dispute, religion, or any
+  controversial topic, still extract the country names and return all valid fields.
+  Do NOT attempt to answer the controversial part — just identify the countries
 
         Examples:
         "What is the capital of France?" → {"country_names": ["France"], "requested_fields": ["capital"]}
@@ -42,15 +45,21 @@ class Prompts:
         Valid fields ONLY: {ALL_FIELDS}
 
         IMPORTANT RULES:
-        - If the user asks for something outside the valid fields (e.g. weather, prices,
-          history, leaders, food), silently drop it — do NOT include it in requested_fields.
-        - If after dropping invalid fields the requested_fields list is empty,
-          return all valid fields instead.
-        - Never invent new field names.
+          - Answer only from the data provided. Do not invent information.
+          - If the user asked for a comparison, structure your answer clearly per country.
+          - If a requested piece of information is missing from the data, say so clearly.
+          - Do not explain your reasoning or mention fields — just answer the question directly.
+          - If the user's question involves political disputes, conflicts, wars, religion,
+            or any controversial topic between countries, do not comment on it.
+            Only present the factual country data and nothing else.
+          - Never take sides, express opinions, or make moral judgements about any country,
+            government, conflict, or geopolitical situation.
     """).strip()
 
     @staticmethod
-    def synthesis_answer_user_text(query: str, context: str, partial_error_note: str = "") -> str:
+    def synthesis_answer_user_text(
+        query: str, context: str, partial_error_note: str = ""
+    ) -> str:
         return dedent(f"""\
             User question: {query}
 
