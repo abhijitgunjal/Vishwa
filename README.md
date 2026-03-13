@@ -134,7 +134,7 @@ Filter by ID to trace a single request across all three pipeline nodes.
 | LLM providers | Groq · AWS Bedrock · OpenRouter |
 | Rate limiting | SlowAPI |
 | Async caching | `async-lru` (`alru_cache`) |
-| Deployment | Docker · Railway · AWS Lambda (Mangum) |
+| Deployment | Docker · serverless · Vercel · AWS Lambda (Mangum) |
 
 ---
 
@@ -247,18 +247,14 @@ All LLM and HTTP calls are mocked — no API keys needed to run the test suite.
 
 ## Deployment
 
-### Docker
+### Docker & serverless
 
 ```bash
-docker build -t vishwa-backend .
-docker run -p 8000:8000 --env-file .env vishwa-backend
+serverless deploy
 ```
 
-### Railway
-
-```bash
-railway up
-```
+### vercel
+- for UI deployment
 
 ### AWS Lambda
 
